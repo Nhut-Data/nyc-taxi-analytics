@@ -1,0 +1,26 @@
+# spark_jobs/Dockerfile.spark-dev
+# Pin đúng version khớp Dataproc Serverless runtime 2.3 LTS:
+# Spark 3.5.3 | Python 3.11 | Java 17
+# Dùng bookworm (Debian 12) vì có sẵn openjdk-17 trong repo
+
+FROM python:3.11-slim-bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openjdk-17-jdk-headless \
+    wget \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+RUN pip install --no-cache-dir \
+    pyspark==3.5.3 \
+    google-cloud-storage==2.19.0 \
+    google-cloud-bigquery==3.33.0 \
+    pyarrow==15.0.0 \
+    requests==2.32.0 \
+    pandas==2.2.0 \
+    pytest==8.3.0
+
+WORKDIR /app
