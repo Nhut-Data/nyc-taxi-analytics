@@ -1,0 +1,20 @@
+# config/dev.yaml
+gcp:
+  project_id: banking-data-platform-500108
+  region: us-central1  # giữ nguyên region từ Project 1 để tránh data transfer cost
+
+gcs:
+  raw_bucket: nyc-taxi-raw-banking-500108
+  raw_prefix: trip-data
+
+bigquery:
+  conformed_dataset: nyc_taxi_conformed
+  quarantine_dataset: nyc_taxi_quarantine
+  marts_dataset: nyc_taxi_marts
+
+dataproc:
+  runtime_version: "2.3"  # LTS, support tới 11/2027
+  region: us-central1
+
+spark:
+  app_name: nyc_taxi_conform
