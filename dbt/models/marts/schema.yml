@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: fact_trips
+    description: "Fact table — grain: 1 row = 1 trip"
+    columns:
+      - name: pickup_date
+        data_tests:
+          - not_null
+      - name: service_type
+        data_tests:
+          - not_null
+      - name: total_amount
+        data_tests:
+          - not_null
+
+  - name: agg_hourly_demand_by_zone
+    description: "Hourly demand by zone — answers business question 1"
+    columns:
+      - name: trip_count
+        data_tests:
+          - not_null
+
+  - name: agg_monthly_zone_revenue
+    description: "Monthly revenue by zone — answers business question 2"
+    columns:
+      - name: total_revenue
+        data_tests:
+          - not_null
+
+  - name: agg_monthly_data_quality
+    description: "Monthly data quality trend — answers business question 3"
+    columns:
+      - name: rejected_count
+        data_tests:
+          - not_null

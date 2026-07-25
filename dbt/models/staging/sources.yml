@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: nyc_taxi_conformed
+    project: banking-data-platform-500108
+    dataset: nyc_taxi_conformed
+    tables:
+      - name: trips
+        description: "Conformed NYC taxi trips — validated, schema-reconciled, zone-joined. Written by Spark conform job."
+
+  - name: nyc_taxi_quarantine
+    project: banking-data-platform-500108
+    dataset: nyc_taxi_quarantine
+    tables:
+      - name: rejected_trips
+        description: "Rejected records with reason_code. Written by Spark conform job."

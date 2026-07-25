@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: stg_trips
+    description: "Staging layer for conformed NYC taxi trips"
+    columns:
+      - name: vendor_id
+        data_tests:
+          - not_null
+
+      - name: service_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['yellow', 'green', 'fhv', 'fhvhv']
+
+      - name: pickup_date
+        data_tests:
+          - not_null
+
+      - name: fare_amount
+        data_tests:
+          - not_null
+
+      - name: pu_location_id
+        data_tests:
+          - not_null
+
+      - name: do_location_id
+        data_tests:
+          - not_null
