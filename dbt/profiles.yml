@@ -1,0 +1,13 @@
+nyc_taxi:
+  outputs:
+    dev:
+      dataset: nyc_taxi_marts
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+      location: US
+      method: oauth
+      priority: interactive
+      project: banking-data-platform-500108
+      threads: 4
+      type: bigquery
+  target: dev

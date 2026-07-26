@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 8 * 1024 * 1024  # 8MB chunks
-
+UPLOAD_TIMEOUT = 600  # 10 phút — tăng từ 120s mặc định
 
 def _parse_gcs_path(gcs_path: str) -> tuple[str, str]:
     """Parse 'gs://bucket/path/to/file' → (bucket, blob_path)"""
@@ -82,7 +82,7 @@ def download_to_gcs(
 
     with requests.get(url, stream=True, timeout=120) as r:
         r.raise_for_status()
-        with blob.open("wb") as f:
+        with blob.open("wb", timeout=UPLOAD_TIMEOUT) as f:
             for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
                 f.write(chunk)
 
