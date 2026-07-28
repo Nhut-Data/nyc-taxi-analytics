@@ -11,13 +11,16 @@ Flow:
 import logging
 import requests
 from google.cloud import storage
-from ingestion.url_builder import build_trip_url, build_gcs_path, ZONE_LOOKUP_URL
+from ingestion.url_builder import build_trip_url, build_gcs_path
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 8 * 1024 * 1024  # 8MB chunks
 UPLOAD_TIMEOUT = 600  # 10 phút — tăng từ 120s mặc định
+
 
 def _parse_gcs_path(gcs_path: str) -> tuple[str, str]:
     """Parse 'gs://bucket/path/to/file' → (bucket, blob_path)"""

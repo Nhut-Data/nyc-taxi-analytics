@@ -9,7 +9,9 @@ import requests
 from google.cloud import storage
 from ingestion.url_builder import ZONE_LOOKUP_URL
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 ZONE_LOOKUP_GCS_PATH = "reference/taxi_zone_lookup.csv"  # path cố định trong bucket

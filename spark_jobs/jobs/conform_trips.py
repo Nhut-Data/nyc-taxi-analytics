@@ -6,7 +6,8 @@ Flow:
 1. Đọc raw Parquet từ GCS (không có schema cứng — đọc tự do)
 2. Lowercase + rename cột về snake_case chuẩn
 3. Cast type về chuẩn (long cho integer columns)
-4. Fill null cho cột xuất hiện theo thời gian (congestion_surcharge, airport_fee, cbd_congestion_fee)
+4. Fill null cho cột xuất hiện theo thời gian
+   (congestion_surcharge, airport_fee, cbd_congestion_fee)
 5. Validate rules → tách valid / invalid
 6. Broadcast join với zone lookup (tường minh dùng broadcast() hint)
 7. Thêm metadata columns (service_type, pickup_date, ingestion_date, source_file)
@@ -53,6 +54,7 @@ OPTIONAL_COLS = [
 
 
 # ── Step functions ───────────────────────────────────────────
+
 
 def read_raw(spark: SparkSession, gcs_path: str) -> DataFrame:
     """Đọc raw Parquet từ GCS, không enforce schema."""
@@ -103,9 +105,8 @@ def split_valid_invalid(df: DataFrame) -> tuple[DataFrame, DataFrame]:
     - invalid: record vi phạm ít nhất 1 rule, kèm reason_code
     """
     valid_df = df.filter(is_all_valid())
-    invalid_df = (
-        df.filter(~is_all_valid())
-        .withColumn("reason_code", get_reason_code(df))
+    invalid_df = df.filter(~is_all_valid()).withColumn(
+        "reason_code", get_reason_code(df)
     )
     return valid_df, invalid_df
 
@@ -142,8 +143,7 @@ def add_metadata(
 ) -> DataFrame:
     """Thêm các cột metadata cần thiết cho BigQuery."""
     return (
-        df
-        .withColumn("service_type", F.lit(service_type))
+        df.withColumn("service_type", F.lit(service_type))
         .withColumn("pickup_date", F.col("pickup_datetime").cast(DateType()))
         .withColumn("ingestion_date", F.lit(str(ingestion_date)).cast(DateType()))
         .withColumn("source_file", F.lit(source_file))
@@ -152,25 +152,36 @@ def add_metadata(
 
 def select_conformed_cols(df: DataFrame) -> DataFrame:
     """Select đúng các cột theo CONFORMED_SCHEMA, theo đúng thứ tự."""
-    cols = [field.name for field in CONFORMED_SCHEMA.fields
-            if field.name not in ("reason_code", "reason_detail")]
+    cols = [
+        field.name
+        for field in CONFORMED_SCHEMA.fields
+        if field.name not in ("reason_code", "reason_detail")
+    ]
     return df.select(*cols)
 
 
 def select_quarantine_cols(df: DataFrame) -> DataFrame:
     """Select các cột cho quarantine table."""
     quarantine_cols = [
-        "vendor_id", "service_type",
-        "pickup_datetime", "dropoff_datetime",
-        "passenger_count", "trip_distance",
-        "pu_location_id", "do_location_id",
-        "fare_amount", "total_amount",
-        "reason_code", "ingestion_date", "source_file",
+        "vendor_id",
+        "service_type",
+        "pickup_datetime",
+        "dropoff_datetime",
+        "passenger_count",
+        "trip_distance",
+        "pu_location_id",
+        "do_location_id",
+        "fare_amount",
+        "total_amount",
+        "reason_code",
+        "ingestion_date",
+        "source_file",
     ]
     return df.select(*quarantine_cols)
 
 
 # ── Main ─────────────────────────────────────────────────────
+
 
 def run(
     spark: SparkSession,
@@ -210,8 +221,7 @@ def run(
     # 5. Thêm metadata
     valid_df = add_metadata(valid_df, service_type, source_file, ingestion_date)
     invalid_df = (
-        invalid_df
-        .withColumn("service_type", F.lit(service_type))
+        invalid_df.withColumn("service_type", F.lit(service_type))
         .withColumn("ingestion_date", F.lit(str(ingestion_date)).cast(DateType()))
         .withColumn("source_file", F.lit(source_file))
     )
@@ -223,14 +233,15 @@ def run(
     # 7. Đếm để log + return
     valid_count = valid_df.count()
     invalid_count = invalid_df.count()
-    logger.info(f"Valid: {valid_count:,} | Invalid: {invalid_count:,} | "
-                f"Reject rate: {invalid_count/raw_count*100:.2f}%")
+    logger.info(
+        f"Valid: {valid_count:,} | Invalid: {invalid_count:,} | "
+        f"Reject rate: {invalid_count/raw_count*100:.2f}%"
+    )
 
     # 8. Ghi BigQuery
     logger.info(f"Writing conformed → {bq_conformed_table}")
     (
-        valid_df.write
-        .format("bigquery")
+        valid_df.write.format("bigquery")
         .option("table", bq_conformed_table)
         .option("temporaryGcsBucket", gcs_temp_bucket)
         .option("partitionField", "pickup_date")
@@ -241,8 +252,7 @@ def run(
 
     logger.info(f"Writing quarantine → {bq_quarantine_table}")
     (
-        invalid_df.write
-        .format("bigquery")
+        invalid_df.write.format("bigquery")
         .option("table", bq_quarantine_table)
         .option("temporaryGcsBucket", gcs_temp_bucket)
         .option("partitionField", "ingestion_date")
@@ -268,11 +278,7 @@ if __name__ == "__main__":
     parser.add_argument("--gcs-temp-bucket", required=True)
     args = parser.parse_args()
 
-    spark = (
-        SparkSession.builder
-        .appName("nyc_taxi_conform")
-        .getOrCreate()
-    )
+    spark = SparkSession.builder.appName("nyc_taxi_conform").getOrCreate()
 
     run(
         spark=spark,

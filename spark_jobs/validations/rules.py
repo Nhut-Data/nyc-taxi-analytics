@@ -20,9 +20,8 @@ def is_valid_fare() -> Column:
 
 
 def is_valid_distance() -> Column:
-    return (
-        (F.col("trip_distance") >= 0) &
-        (F.col("trip_distance") <= MAX_TRIP_DISTANCE_MILES)
+    return (F.col("trip_distance") >= 0) & (
+        F.col("trip_distance") <= MAX_TRIP_DISTANCE_MILES
     )
 
 
@@ -34,8 +33,12 @@ def is_valid_duration() -> Column:
 
 
 def is_valid_location_id() -> Column:
-    valid_pu = F.col("pu_location_id").between(VALID_LOCATION_ID_MIN, VALID_LOCATION_ID_MAX)
-    valid_do = F.col("do_location_id").between(VALID_LOCATION_ID_MIN, VALID_LOCATION_ID_MAX)
+    valid_pu = F.col("pu_location_id").between(
+        VALID_LOCATION_ID_MIN, VALID_LOCATION_ID_MAX
+    )
+    valid_do = F.col("do_location_id").between(
+        VALID_LOCATION_ID_MIN, VALID_LOCATION_ID_MAX
+    )
     return valid_pu & valid_do
 
 
