@@ -35,7 +35,7 @@ jobs:
             pyarrow==15.0.0 \
             pandas==2.2.0 \
             pytest==8.3.0 \
-            black==24.0.0 \
+            black==24.4.2 \
             flake8==7.0.0
 
       - name: Black format check
