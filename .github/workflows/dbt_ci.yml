@@ -1,37 +1,40 @@
 name: dbt CI
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'dbt/**'
   pull_request:
     branches: [main]
     paths:
       - 'dbt/**'
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   dbt-test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install dbt
         run: pip install dbt-bigquery==1.12.0
-
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
+          workload_identity_provider: projects/476625998096/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: 'github-ci-dbt@banking-data-platform-500108.iam.gserviceaccount.com'
       - name: dbt compile (syntax check)
         run: |
           cd dbt
           dbt compile --profiles-dir . --target dev
-
       - name: dbt test
         run: |
           cd dbt

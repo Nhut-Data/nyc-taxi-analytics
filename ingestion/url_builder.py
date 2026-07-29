@@ -50,3 +50,4 @@ def build_gcs_path(year: int, month: int, service_type: str, bucket: str) -> str
 if __name__ == "__main__":
     # Quick smoke test
     url = build_trip_url(2024, 1, "yellow")
+    
