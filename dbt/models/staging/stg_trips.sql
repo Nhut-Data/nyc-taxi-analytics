@@ -51,3 +51,4 @@ select
     source_file
 
 from source
+-- trigger ci verify
