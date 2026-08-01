@@ -25,6 +25,7 @@ from pyspark.sql.types import LongType, DoubleType, DateType
 
 from spark_jobs.schemas.trip_schema import COLUMN_RENAME_MAP, CONFORMED_SCHEMA
 from spark_jobs.validations.rules import is_all_valid, get_reason_code
+from google.cloud import bigquery
 
 logging.basicConfig(
     level=logging.INFO,
@@ -180,6 +181,36 @@ def select_quarantine_cols(df: DataFrame) -> DataFrame:
     return df.select(*quarantine_cols)
 
 
+def delete_existing_rows(table_fqn: str, source_file: str) -> None:
+    """
+    Xoá các dòng cũ có cùng source_file trước khi ghi mới.
+    Đảm bảo job idempotent — chạy lại nhiều lần cho cùng 1 tháng
+    không bị nhân đôi dữ liệu (append cộng dồn).
+    """
+    project_id = table_fqn.split(".")[0]
+    client = bigquery.Client(project=project_id)
+    query = f"""
+        DELETE FROM `{table_fqn}`
+        WHERE source_file = @source_file
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("source_file", "STRING", source_file),
+        ]
+    )
+    try:
+        client.query(query, job_config=job_config).result()
+        logger.info(
+            f"Deleted existing rows for source_file={source_file} in {table_fqn}"
+        )
+    except Exception as e:
+        # Bảng có thể chưa tồn tại ở lần chạy đầu tiên — bỏ qua lỗi "not found"
+        if "Not found" in str(e):
+            logger.info(f"Table {table_fqn} not found yet, skip delete (first run)")
+        else:
+            raise
+
+
 # ── Main ─────────────────────────────────────────────────────
 
 
@@ -237,6 +268,8 @@ def run(
         f"Valid: {valid_count:,} | Invalid: {invalid_count:,} | "
         f"Reject rate: {invalid_count/raw_count*100:.2f}%"
     )
+    delete_existing_rows(bq_conformed_table, source_file)
+    delete_existing_rows(bq_quarantine_table, source_file)
 
     # 8. Ghi BigQuery
     logger.info(f"Writing conformed → {bq_conformed_table}")
@@ -246,7 +279,7 @@ def run(
         .option("temporaryGcsBucket", gcs_temp_bucket)
         .option("partitionField", "pickup_date")
         .option("clusteredFields", "service_type,pu_borough")
-        .mode("append")
+        .mode("overwrite")
         .save()
     )
 
@@ -256,7 +289,7 @@ def run(
         .option("table", bq_quarantine_table)
         .option("temporaryGcsBucket", gcs_temp_bucket)
         .option("partitionField", "ingestion_date")
-        .mode("append")
+        .mode("overwrite")
         .save()
     )
 
