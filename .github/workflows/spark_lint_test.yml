@@ -3,6 +3,10 @@ name: Spark Lint & Test
 on:
   push:
     branches: [main]
+    paths:
+      - 'spark_jobs/**'
+      - 'tests/**'
+      - 'ingestion/**'
   pull_request:
     branches: [main]
     paths:

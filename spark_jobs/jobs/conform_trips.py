@@ -98,15 +98,21 @@ def fill_optional_cols(df: DataFrame) -> DataFrame:
     return df
 
 
-def split_valid_invalid(df: DataFrame) -> tuple[DataFrame, DataFrame]:
+def split_valid_invalid(
+    df: DataFrame, expected_year: int = None, expected_month: int = None
+) -> tuple[DataFrame, DataFrame]:
     """
     Tách DataFrame thành 2:
     - valid: record pass tất cả rules
     - invalid: record vi phạm ít nhất 1 rule, kèm reason_code
+
+    expected_year/expected_month: validate pickup_datetime đúng tháng file
+    đang xử lý (chặn rác vendor như pickup_datetime=2002-12-31). None = bỏ
+    qua check (dùng cho unit test).
     """
-    valid_df = df.filter(is_all_valid())
-    invalid_df = df.filter(~is_all_valid()).withColumn(
-        "reason_code", get_reason_code(df)
+    valid_df = df.filter(is_all_valid(expected_year, expected_month))
+    invalid_df = df.filter(~is_all_valid(expected_year, expected_month)).withColumn(
+        "reason_code", get_reason_code(expected_year, expected_month)
     )
     return valid_df, invalid_df
 
@@ -212,7 +218,9 @@ def run(
     df = fill_optional_cols(df)
 
     # 3. Tách valid / invalid
-    valid_df, invalid_df = split_valid_invalid(df)
+    valid_df, invalid_df = split_valid_invalid(
+        df, expected_year=ingestion_date.year, expected_month=ingestion_date.month
+    )
 
     # 4. Join zone lookup (chỉ valid records cần join)
     zone_df = spark.read.csv(zone_lookup_path, header=True, inferSchema=True)

@@ -2,21 +2,23 @@
 from pyspark.sql import functions as F
 from pyspark.sql.column import Column
 
-REASON_NEGATIVE_FARE = "negative_fare"
+REASON_INVALID_FARE = "invalid_fare"
 REASON_SUSPICIOUS_DISTANCE = "suspicious_distance"
 REASON_INVALID_DURATION = "invalid_duration"
 REASON_DURATION_GT_24H = "duration_gt_24h"
 REASON_INVALID_LOCATION_ID = "invalid_location_id"
 REASON_NULL_DATETIME = "null_datetime"
+REASON_WRONG_PERIOD = "wrong_period"
 
 MAX_TRIP_DISTANCE_MILES = 500.0
 MAX_TRIP_DURATION_MINUTES = 1440
 VALID_LOCATION_ID_MIN = 1
 VALID_LOCATION_ID_MAX = 265
+MIN_FARE_AMOUNT = 2.5  # gia mo cua toi thieu luat dinh NYC (~$3), chua bien an toan
 
 
 def is_valid_fare() -> Column:
-    return F.col("fare_amount") >= 0
+    return F.col("fare_amount") >= MIN_FARE_AMOUNT
 
 
 def is_valid_distance() -> Column:
@@ -46,20 +48,37 @@ def is_not_null_datetime() -> Column:
     return F.col("pickup_datetime").isNotNull() & F.col("dropoff_datetime").isNotNull()
 
 
-def is_all_valid() -> Column:
+def is_valid_period(expected_year: int = None, expected_month: int = None) -> Column:
+    """
+    Kiem tra pickup_datetime co nam dung trong thang file dang xu ly khong.
+    Chan rac du lieu vendor nhu pickup_datetime=2002-12-31 trong file 2024-01.
+    Neu khong truyen expected_year/expected_month, luon tra ve True (bo qua
+    check) - giu tuong thich nguoc cho unit test goi is_all_valid() khong
+    tham so.
+    """
+    if expected_year is None or expected_month is None:
+        return F.lit(True)
+    return (F.year(F.col("pickup_datetime")) == expected_year) & (
+        F.month(F.col("pickup_datetime")) == expected_month
+    )
+
+
+def is_all_valid(expected_year: int = None, expected_month: int = None) -> Column:
     return (
         is_not_null_datetime()
         & is_valid_fare()
         & is_valid_duration()
         & is_valid_distance()
         & is_valid_location_id()
+        & is_valid_period(expected_year, expected_month)
     )
 
 
-def get_reason_code(df=None) -> Column:
+def get_reason_code(expected_year: int = None, expected_month: int = None) -> Column:
     return (
         F.when(~is_not_null_datetime(), REASON_NULL_DATETIME)
-        .when(~is_valid_fare(), REASON_NEGATIVE_FARE)
+        .when(~is_valid_period(expected_year, expected_month), REASON_WRONG_PERIOD)
+        .when(~is_valid_fare(), REASON_INVALID_FARE)
         .when(~is_valid_duration(), REASON_INVALID_DURATION)
         .when(~is_valid_distance(), REASON_SUSPICIOUS_DISTANCE)
         .when(~is_valid_location_id(), REASON_INVALID_LOCATION_ID)

@@ -50,7 +50,7 @@ print("\nStep 4: fill optional cols")
 df = fill_optional_cols(df)
 
 print("\nStep 5: split valid/invalid")
-valid_df, invalid_df = split_valid_invalid(df)
+valid_df, invalid_df = split_valid_invalid(df, expected_year=2024, expected_month=1)
 valid_count = valid_df.count()
 invalid_count = invalid_df.count()
 print(f"  valid  : {valid_count:,}")

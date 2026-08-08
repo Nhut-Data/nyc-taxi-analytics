@@ -19,8 +19,9 @@ from spark_jobs.validations.rules import (
     is_valid_location_id,
     is_all_valid,
     get_reason_code,
-    REASON_NEGATIVE_FARE,
+    REASON_INVALID_FARE,
     REASON_SUSPICIOUS_DISTANCE,
+    REASON_WRONG_PERIOD,
 )
 from spark_jobs.jobs.conform_trips import (
     normalize_columns,
@@ -80,7 +81,7 @@ class TestIsValidFare:
         )
         assert df.filter(is_valid_fare()).count() == 1
 
-    def test_zero_fare_is_valid(self, spark):
+    def test_zero_fare_is_invalid(self, spark):
         df = make_trip_df(
             spark,
             [
@@ -94,7 +95,28 @@ class TestIsValidFare:
                 }
             ],
         )
-        assert df.filter(is_valid_fare()).count() == 1
+        assert df.filter(is_valid_fare()).count() == 0
+
+    def test_extremely_low_fare_is_invalid(self, spark):
+        """
+        Regression test cho bug thuc te tren dashboard: fare_amount
+        rat nho (duong) khien tip_percentage = tip/fare*100 no len
+        hang nghin %. Rule phai chan tu Spark, khong chi chan fare am.
+        """
+        df = make_trip_df(
+            spark,
+            [
+                {
+                    "fare_amount": 0.01,
+                    "trip_distance": 2.0,
+                    "pickup_datetime": None,
+                    "dropoff_datetime": None,
+                    "pu_location_id": 1,
+                    "do_location_id": 2,
+                }
+            ],
+        )
+        assert df.filter(is_valid_fare()).count() == 0
 
     def test_negative_fare_is_invalid(self, spark):
         df = make_trip_df(
@@ -328,7 +350,7 @@ class TestReasonCode:
             .select("reason_code")
             .collect()[0]["reason_code"]
         )
-        assert result == REASON_NEGATIVE_FARE
+        assert result == REASON_INVALID_FARE
 
     def test_extreme_distance_gets_correct_reason(self, spark):
         df = make_trip_df(
@@ -351,6 +373,56 @@ class TestReasonCode:
             .collect()[0]["reason_code"]
         )
         assert result == REASON_SUSPICIOUS_DISTANCE
+
+    def test_wrong_period_gets_correct_reason(self, spark):
+        """
+        Regression test cho bug thuc te: file thang 2024-01 lan data
+        pickup_datetime=2002-12-31 (loi vendor). Rule phai bat duoc khi
+        truyen dung expected_year/expected_month cua file dang xu ly.
+        """
+        df = make_trip_df(
+            spark,
+            [
+                {
+                    "fare_amount": 10.0,
+                    "trip_distance": 2.0,
+                    "pickup_datetime": ts("2002-12-31 08:00:00"),
+                    "dropoff_datetime": ts("2002-12-31 08:15:00"),
+                    "pu_location_id": 1,
+                    "do_location_id": 2,
+                }
+            ],
+        )
+        result = (
+            df.filter(~is_all_valid(expected_year=2024, expected_month=1))
+            .withColumn(
+                "reason_code", get_reason_code(expected_year=2024, expected_month=1)
+            )
+            .select("reason_code")
+            .collect()[0]["reason_code"]
+        )
+        assert result == REASON_WRONG_PERIOD
+
+    def test_wrong_period_without_expected_args_is_valid(self, spark):
+        """
+        Khi khong truyen expected_year/expected_month (VD: goi truc tiep
+        tu code cu hoac test khac), rule bo qua check period hoan toan -
+        dam bao tuong thich nguoc, khong lam gay cac test/call site khac.
+        """
+        df = make_trip_df(
+            spark,
+            [
+                {
+                    "fare_amount": 10.0,
+                    "trip_distance": 2.0,
+                    "pickup_datetime": ts("2002-12-31 08:00:00"),
+                    "dropoff_datetime": ts("2002-12-31 08:15:00"),
+                    "pu_location_id": 1,
+                    "do_location_id": 2,
+                }
+            ],
+        )
+        assert df.filter(is_all_valid()).count() == 1
 
 
 # ── TestNormalizeColumns ──────────────────────────────────────
