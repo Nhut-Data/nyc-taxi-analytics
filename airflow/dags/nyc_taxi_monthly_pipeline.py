@@ -6,6 +6,12 @@ from airflow.operators.bash import BashOperator
 from airflow.providers.google.cloud.operators.dataproc import DataprocCreateBatchOperator
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from callbacks import notify_failure, notify_success  # noqa: E402
+
 # ── Config ───────────────────────────────────────────────────
 PROJECT_ID      = "banking-data-platform-500108"
 REGION          = "us-central1"
@@ -126,6 +132,7 @@ def nyc_taxi_monthly_pipeline():
         },
         batch_id="nyc-taxi-conform-{{ ts_nodash | lower }}",
         gcp_conn_id="google_cloud_default",
+        on_failure_callback=notify_failure,
     )
 
     sanity = row_count_sanity_check(period)
@@ -133,16 +140,19 @@ def nyc_taxi_monthly_pipeline():
     dbt_run = BashOperator(
         task_id="dbt_run",
         bash_command="cd /opt/airflow/dbt && dbt run --profiles-dir /opt/airflow/dbt",
+        on_failure_callback=notify_failure,
     )
 
     dbt_test = BashOperator(
         task_id="dbt_test",
         bash_command="cd /opt/airflow/dbt && dbt test --profiles-dir /opt/airflow/dbt",
+        on_failure_callback=notify_failure,
     )
 
     dbt_docs = BashOperator(
         task_id="dbt_docs_generate",
         bash_command="cd /opt/airflow/dbt && dbt docs generate --profiles-dir /opt/airflow/dbt",
+        on_success_callback=notify_success,
     )
 
     # ── Dependencies ──────────────────────────────────────────
