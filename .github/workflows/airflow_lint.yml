@@ -4,10 +4,13 @@ on:
     branches: [main]
     paths:
       - 'airflow/**'
+      - '.github/workflows/airflow_lint.yml'
   pull_request:
     branches: [main]
     paths:
       - 'airflow/**'
+      - '.github/workflows/airflow_lint.yml'
+  workflow_dispatch: {}
 jobs:
   dag-lint-and-validate:
     runs-on: ubuntu-latest
