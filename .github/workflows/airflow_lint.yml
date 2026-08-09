@@ -39,7 +39,7 @@ jobs:
           python - <<'EOF'
           from airflow.models import DagBag
 
-          dag_bag = DagBag(dag_folder="airflow/dags", include_examples=False)
+          dag_bag = DagBag(dag_folder="airflow/dags")
 
           if dag_bag.import_errors:
               print("DAG import errors found:")
