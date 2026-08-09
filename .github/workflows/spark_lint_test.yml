@@ -14,6 +14,11 @@ on:
       - 'tests/**'
       - 'ingestion/**'
 
+permissions:
+  contents: read
+  id-token: write
+
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -50,3 +55,36 @@ jobs:
 
       - name: Run pytest
         run: python -m pytest tests/spark/ -v
+  deploy-to-gcs:
+    needs: lint-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/476625998096/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: 'github-ci-dbt@banking-data-platform-500108.iam.gserviceaccount.com'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build spark_jobs.zip
+        run: |
+          zip -r spark_jobs.zip spark_jobs/ -x "*.pyc" -x "*__pycache__*"
+          echo "--- Verify critical files included ---"
+          unzip -l spark_jobs.zip | grep -E "rules.py|conform_trips.py|run_local.py"
+
+      - name: Deploy to GCS
+        run: |
+          gsutil cp spark_jobs/jobs/conform_trips.py \
+            gs://nyc-taxi-raw-banking-500108/jobs/conform_trips.py
+          gsutil cp spark_jobs.zip \
+            gs://nyc-taxi-raw-banking-500108/jobs/spark_jobs.zip
+
+      - name: Verify upload
+        run: |
+          gsutil ls -L gs://nyc-taxi-raw-banking-500108/jobs/spark_jobs.zip | grep -i "Update time"
