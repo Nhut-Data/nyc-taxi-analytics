@@ -7,12 +7,15 @@ on:
       - 'spark_jobs/**'
       - 'tests/**'
       - 'ingestion/**'
+      - '.github/workflows/spark_lint_test.yml'
   pull_request:
     branches: [main]
     paths:
       - 'spark_jobs/**'
       - 'tests/**'
       - 'ingestion/**'
+      - '.github/workflows/spark_lint_test.yml'
+  workflow_dispatch: {}
 
 permissions:
   contents: read
