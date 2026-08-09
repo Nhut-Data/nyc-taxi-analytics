@@ -1,9 +1,9 @@
-
-
 from datetime import datetime, timedelta
 from airflow.decorators import dag, task
 from airflow.operators.bash import BashOperator
-from airflow.providers.google.cloud.operators.dataproc import DataprocCreateBatchOperator
+from airflow.providers.google.cloud.operators.dataproc import (
+    DataprocCreateBatchOperator,
+)
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 import pendulum
 import os
@@ -14,15 +14,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from callbacks import notify_failure, notify_success  # noqa: E402
 
 # ── Config ───────────────────────────────────────────────────
-PROJECT_ID      = "banking-data-platform-500108"
-REGION          = "us-central1"
-RAW_BUCKET      = "nyc-taxi-raw-banking-500108"
-STAGING_BUCKET  = "nyc-taxi-dataproc-staging-500108"
+PROJECT_ID = "banking-data-platform-500108"
+REGION = "us-central1"
+RAW_BUCKET = "nyc-taxi-raw-banking-500108"
+STAGING_BUCKET = "nyc-taxi-dataproc-staging-500108"
 RUNTIME_VERSION = "2.3"
 
-BQ_CONFORMED_TABLE  = f"{PROJECT_ID}.nyc_taxi_conformed.trips"
+BQ_CONFORMED_TABLE = f"{PROJECT_ID}.nyc_taxi_conformed.trips"
 BQ_QUARANTINE_TABLE = f"{PROJECT_ID}.nyc_taxi_quarantine.rejected_trips"
-MIN_EXPECTED_ROWS   = 100_000
+MIN_EXPECTED_ROWS = 100_000
 
 DEFAULT_ARGS = {
     "owner": "nhutdata",
@@ -36,13 +36,24 @@ DEFAULT_ARGS = {
     dag_id="nyc_taxi_monthly_pipeline",
     default_args=DEFAULT_ARGS,
     description="Monthly NYC Taxi ETL pipeline",
-    schedule=None,   
+    schedule=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["nyc-taxi", "spark", "dbt"],
     params={
-        "year": Param(None, type=["null", "integer"], description="Override year (demo/backfill). Để trống = tự tính theo logical_date - 2 tháng."),
-        "month": Param(None, type=["null", "integer"], description="Override month (demo/backfill)."),
+        "year": Param(
+            None,
+            type=["null", "integer"],
+            description=(
+                "Override year (demo/backfill). Để trống = tự tính theo "
+                "logical_date - 2 tháng."
+            ),
+        ),
+        "month": Param(
+            None,
+            type=["null", "integer"],
+            description="Override month (demo/backfill).",
+        ),
     },
 )
 def nyc_taxi_monthly_pipeline():
@@ -83,6 +94,7 @@ def nyc_taxi_monthly_pipeline():
     def download_to_gcs(period: dict) -> str:
         """Tải Parquet từ TLC CloudFront lên GCS. Skip nếu đã tồn tại."""
         import sys
+
         sys.path.insert(0, "/opt/airflow")
 
         from ingestion.download_to_gcs import download_to_gcs as _download
@@ -109,7 +121,7 @@ def nyc_taxi_monthly_pipeline():
               AND pickup_date < DATE_ADD(DATE '{period["year_month"]}-01', INTERVAL 1 MONTH)
         """
         result = hook.get_first(sql=query, parameters=None)
-        count  = result[0]
+        count = result[0]
         print(f"Row count for {period['year_month']}: {count:,}")
 
         if count < MIN_EXPECTED_ROWS:
@@ -121,8 +133,8 @@ def nyc_taxi_monthly_pipeline():
         return count
 
     # ── Tasks ─────────────────────────────────────────────────
-    period     = get_target_period()
-    gcs_path   = download_to_gcs(period)
+    period = get_target_period()
+    gcs_path = download_to_gcs(period)
 
     # DataprocCreateBatchOperator không phải @task nên dùng trực tiếp
     submit_dataproc = DataprocCreateBatchOperator(
@@ -134,13 +146,20 @@ def nyc_taxi_monthly_pipeline():
                 "main_python_file_uri": f"gs://{RAW_BUCKET}/jobs/conform_trips.py",
                 "python_file_uris": [f"gs://{RAW_BUCKET}/jobs/spark_jobs.zip"],
                 "args": [
-                    "--gcs-raw-path",       "{{ ti.xcom_pull(task_ids='download_to_gcs') }}",
-                    "--zone-lookup-path",   f"gs://{RAW_BUCKET}/reference/taxi_zone_lookup.csv",
-                    "--bq-conformed-table", BQ_CONFORMED_TABLE,
-                    "--bq-quarantine-table",BQ_QUARANTINE_TABLE,
-                    "--service-type",       "yellow",
-                    "--ingestion-date",     "{{ ti.xcom_pull(task_ids='get_target_period')['year_month'] }}-01",
-                    "--gcs-temp-bucket",    STAGING_BUCKET,
+                    "--gcs-raw-path",
+                    "{{ ti.xcom_pull(task_ids='download_to_gcs') }}",
+                    "--zone-lookup-path",
+                    f"gs://{RAW_BUCKET}/reference/taxi_zone_lookup.csv",
+                    "--bq-conformed-table",
+                    BQ_CONFORMED_TABLE,
+                    "--bq-quarantine-table",
+                    BQ_QUARANTINE_TABLE,
+                    "--service-type",
+                    "yellow",
+                    "--ingestion-date",
+                    "{{ ti.xcom_pull(task_ids='get_target_period')['year_month'] }}-01",
+                    "--gcs-temp-bucket",
+                    STAGING_BUCKET,
                 ],
             },
             "runtime_config": {"version": RUNTIME_VERSION},

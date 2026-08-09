@@ -9,6 +9,7 @@ với đúng 1 tham số — dict `context` — mỗi khi task đổi trạng th
 context['exception'] CHỈ tồn tại ở failure callback, không có ở success
 callback — đây là lý do tách 2 hàm riêng thay vì dùng chung 1 hàm.
 """
+
 import logging
 
 import requests

@@ -1,0 +1,51 @@
+name: Airflow DAG Lint & Validate
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'airflow/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'airflow/**'
+jobs:
+  dag-lint-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: "Install Airflow (matching runtime: 3.3.0 + google provider)"
+        run: |
+          pip install "apache-airflow[google]==3.3.0" \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.0/constraints-3.13.txt"
+          pip install black==24.4.2 flake8==7.0.0
+
+      - name: Black format check
+        run: black --check airflow/dags/
+
+      - name: Flake8 lint
+        run: flake8 airflow/dags/ --max-line-length=100 --extend-ignore=E203,W503
+
+      - name: Validate DAG import (catch parse errors before deploy)
+        env:
+          AIRFLOW_HOME: /tmp/airflow_ci
+        run: |
+          python - <<'EOF'
+          from airflow.models import DagBag
+
+          dag_bag = DagBag(dag_folder="airflow/dags", include_examples=False)
+
+          if dag_bag.import_errors:
+              print("DAG import errors found:")
+              for filename, error in dag_bag.import_errors.items():
+                  print(f"\n--- {filename} ---\n{error}")
+              raise SystemExit(1)
+
+          print(f"OK: {len(dag_bag.dags)} DAG(s) parsed successfully: {list(dag_bag.dags.keys())}")
+          EOF
