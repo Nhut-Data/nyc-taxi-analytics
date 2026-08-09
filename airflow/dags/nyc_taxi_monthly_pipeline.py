@@ -5,9 +5,10 @@ from airflow.decorators import dag, task
 from airflow.operators.bash import BashOperator
 from airflow.providers.google.cloud.operators.dataproc import DataprocCreateBatchOperator
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
-
+import pendulum
 import os
 import sys
+from airflow.models.param import Param
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from callbacks import notify_failure, notify_success  # noqa: E402
@@ -35,21 +36,35 @@ DEFAULT_ARGS = {
     dag_id="nyc_taxi_monthly_pipeline",
     default_args=DEFAULT_ARGS,
     description="Monthly NYC Taxi ETL pipeline",
-    schedule="0 6 1 * *",          # 6AM ngày 1 hàng tháng
+    schedule=None,   
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["nyc-taxi", "spark", "dbt"],
+    params={
+        "year": Param(None, type=["null", "integer"], description="Override year (demo/backfill). Để trống = tự tính theo logical_date - 2 tháng."),
+        "month": Param(None, type=["null", "integer"], description="Override month (demo/backfill)."),
+    },
 )
 def nyc_taxi_monthly_pipeline():
 
     @task
-    def get_target_period(logical_date=None) -> dict:
+    def get_target_period(logical_date=None, dag_run=None) -> dict:
         """
         Tính year/month cần process.
-        Data TLC trễ ~2 tháng → target = logical_date - 2 tháng.
+        Ưu tiên override từ dag_run.conf (dùng khi demo/backfill thủ công qua
+        "Trigger DAG w/ config"); mặc định tự tính: Data TLC trễ ~2 tháng
+        → target = logical_date - 2 tháng.
         """
-        # TEMP: hardcode 2024-01 for testing (file already on GCS)
-        year, month = 2024, 1
+        conf = dag_run.conf if dag_run and dag_run.conf else {}
+        conf_year, conf_month = conf.get("year"), conf.get("month")
+
+        if conf_year and conf_month:
+            year, month = conf_year, conf_month
+        else:
+            if logical_date is None:
+                logical_date = pendulum.now("UTC")
+            target = logical_date.subtract(months=2)
+            year, month = target.year, target.month
 
         result = {
             "year": year,
