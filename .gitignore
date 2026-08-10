@@ -29,7 +29,6 @@ airflow/plugins/
 # OS
 .DS_Store
 spark_jobs/*.jar
-spark_jobs/*.jar
 airflow/config/airflow.cfg
 
 spark_jobs.zip

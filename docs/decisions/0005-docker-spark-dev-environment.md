@@ -28,3 +28,18 @@ không liên quan đến Airflow (docker-compose.yaml ở root giữ nguyên).
 ## Phương án đã cân nhắc nhưng loại
 - **venv trần**: nhanh hơn nhưng không đảm bảo parity Java/Python version với cloud
 - **Nâng Java local lên 17**: fix được Java nhưng không fix được Python version mismatch
+## Cập nhật: BigQuery connector jar (2026-08)
+
+**Vấn đề phát hiện:** File `spark-bigquery-with-dependencies_2.13-*.jar` từng được
+`COPY` vào image nhưng lệch Scala version so với `pyspark==3.5.3` (build trên
+Scala 2.12) — rủi ro lỗi runtime khi load class. Ngoài ra file chưa từng được
+git track (bị `.gitignore` chặn), khiến ai clone repo mới build sẽ lỗi thiếu file.
+
+**Quyết định:** Đổi sang `RUN curl` tải trực tiếp bản `_2.12` đúng version từ
+HTTPS public bucket của Google (`storage.googleapis.com/spark-lib/bigquery/...`)
+ngay trong lúc build image, thay vì commit binary ~54MB vào git. Xác nhận HTTPS
+thuần tải được bình thường — hạn chế mạng gặp trước đây khả năng đến từ
+`gsutil`/`gcloud` (cần trao đổi credential), không phải chặn network hoàn toàn.
+
+**Lợi ích:** không phình repo, luôn dùng đúng Scala version khớp PySpark,
+build được ngay khi clone mới mà không cần bước setup thủ công.
