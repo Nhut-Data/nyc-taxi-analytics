@@ -1,16 +1,21 @@
+
 FROM python:3.11-slim-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-17-jdk-headless \
     wget \
     procps \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
-# Copy JAR từ host (đã tải sẵn, không wget trong build để tránh network restriction)
-COPY spark-bigquery-with-dependencies_2.13-0.42.3.jar /opt/spark-bigquery-connector.jar
+# Tự tải connector khi build — không commit binary vào git.
+# Bản 2.12 khớp Scala version của pyspark==3.5.3 (build trên Scala 2.12).
+# Dùng HTTPS public bucket, không cần auth GCP (tránh network restriction gặp trước đây với gsutil).
+RUN curl -sSL -o /opt/spark-bigquery-connector.jar \
+    https://storage.googleapis.com/spark-lib/bigquery/spark-bigquery-with-dependencies_2.12-0.42.3.jar
 ENV SPARK_BQ_JAR=/opt/spark-bigquery-connector.jar
 
 RUN pip install --no-cache-dir \
