@@ -1,6 +1,10 @@
 -- models/marts/fact_trips.sql
 -- Grain: 1 row = 1 chuyến taxi
 -- Câu hỏi 1 + 2: demand và revenue analysis
+{{ config(
+    partition_by={'field': 'pickup_date', 'data_type': 'date'},
+    cluster_by=['pu_borough']
+) }}
 
 select
     -- Keys
