@@ -33,3 +33,4 @@ airflow/config/airflow.cfg
 
 spark_jobs.zip
 github-ci-key.json
+logs/
