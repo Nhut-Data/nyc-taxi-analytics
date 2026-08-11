@@ -55,6 +55,8 @@ flowchart LR
 | Dev environment | Docker (`Dockerfile.spark-dev`) |
 
 ## Cấu trúc thư mục
+
+```
 ├── airflow/dags/ # DAG chính + Slack callback
 ├── config/ # dev.yaml, prod.yaml — cấu hình theo môi trường
 ├── dbt/models/
@@ -72,6 +74,8 @@ flowchart LR
 │ └── Dockerfile.spark-dev
 ├── tests/spark/ # pytest cho validation rules
 └── .github/workflows/ # 3 workflow CI riêng biệt theo scope
+```
+
 ## Data quality — Quarantine pattern
 
 Thay vì âm thầm loại bỏ dòng lỗi, pipeline tách dữ liệu thành 2 nhánh dựa
