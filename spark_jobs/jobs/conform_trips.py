@@ -189,7 +189,10 @@ def select_quarantine_cols(df: DataFrame) -> DataFrame:
     ]
     return df.select(*quarantine_cols)
 
-def delete_existing_partition(project_dataset_table: str, where_sql: str, params: list) -> None:
+
+def delete_existing_partition(
+    project_dataset_table: str, where_sql: str, params: list
+) -> None:
     """
     Xoá dữ liệu cũ đúng phạm vi partition trước khi ghi mới (dùng thay cho
     BigQuery overwrite mode của spark-bigquery-connector — mode này mặc định
@@ -209,6 +212,8 @@ def delete_existing_partition(project_dataset_table: str, where_sql: str, params
     logger.info(f"Xoá dữ liệu cũ: {query}")
     client.query(query, job_config=job_config).result()
     logger.info(f"Đã xoá xong partition cũ của {project_dataset_table}.")
+
+
 # ── Main ─────────────────────────────────────────────────────
 
 
