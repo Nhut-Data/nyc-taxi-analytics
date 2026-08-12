@@ -17,7 +17,7 @@ Flow:
 
 import argparse
 import logging
-from datetime import date
+from datetime import date, timedelta
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
@@ -25,6 +25,10 @@ from pyspark.sql.types import LongType, DoubleType, DateType
 
 from spark_jobs.schemas.trip_schema import COLUMN_RENAME_MAP, CONFORMED_SCHEMA
 from spark_jobs.validations.rules import is_all_valid, get_reason_code
+
+from calendar import monthrange
+from google.cloud import bigquery
+from google.api_core.exceptions import NotFound
 
 logging.basicConfig(
     level=logging.INFO,
@@ -185,7 +189,26 @@ def select_quarantine_cols(df: DataFrame) -> DataFrame:
     ]
     return df.select(*quarantine_cols)
 
+def delete_existing_partition(project_dataset_table: str, where_sql: str, params: list) -> None:
+    """
+    Xoá dữ liệu cũ đúng phạm vi partition trước khi ghi mới (dùng thay cho
+    BigQuery overwrite mode của spark-bigquery-connector — mode này mặc định
+    STATIC (xoá toàn bảng), và ngay cả khi set DYNAMIC, nhiều báo cáo lỗi
+    thực tế cho thấy connector vẫn xoá nhầm partition khác — không đáng tin.
+    Bỏ qua nếu bảng chưa tồn tại (lần chạy đầu tiên, bảng sẽ tự tạo khi ghi).
+    """
+    client = bigquery.Client()
+    try:
+        client.get_table(project_dataset_table)
+    except NotFound:
+        logger.info(f"Bảng {project_dataset_table} chưa tồn tại, bỏ qua bước xoá.")
+        return
 
+    query = f"DELETE FROM `{project_dataset_table}` WHERE {where_sql}"
+    job_config = bigquery.QueryJobConfig(query_parameters=params)
+    logger.info(f"Xoá dữ liệu cũ: {query}")
+    client.query(query, job_config=job_config).result()
+    logger.info(f"Đã xoá xong partition cũ của {project_dataset_table}.")
 # ── Main ─────────────────────────────────────────────────────
 
 
@@ -246,7 +269,28 @@ def run(
         f"Reject rate: {invalid_count/raw_count*100:.2f}%"
     )
 
-    # 8. Ghi BigQuery
+    # 8. Xoá partition cũ (nếu có) trước khi ghi — kiểm soát tường minh
+    #    phạm vi overwrite, không phụ thuộc partitionOverwriteMode của connector
+    #    (đã có nhiều báo cáo lỗi thật cho thấy DYNAMIC mode không đáng tin).
+    month_start = ingestion_date.replace(day=1)
+    _, last_day = monthrange(month_start.year, month_start.month)
+    month_end_exclusive = month_start.replace(day=last_day) + timedelta(days=1)
+
+    delete_existing_partition(
+        bq_conformed_table,
+        "pickup_date >= @start AND pickup_date < @end",
+        [
+            bigquery.ScalarQueryParameter("start", "DATE", month_start),
+            bigquery.ScalarQueryParameter("end", "DATE", month_end_exclusive),
+        ],
+    )
+    delete_existing_partition(
+        bq_quarantine_table,
+        "ingestion_date = @ingestion_date",
+        [bigquery.ScalarQueryParameter("ingestion_date", "DATE", ingestion_date)],
+    )
+
+    # 9. Ghi BigQuery — dùng append vì đã tự xoá đúng phạm vi ở bước trên
     logger.info(f"Writing conformed → {bq_conformed_table}")
     (
         valid_df.write.format("bigquery")
@@ -254,7 +298,7 @@ def run(
         .option("temporaryGcsBucket", gcs_temp_bucket)
         .option("partitionField", "pickup_date")
         .option("clusteredFields", "service_type,pu_borough")
-        .mode("overwrite")
+        .mode("append")
         .save()
     )
 
@@ -264,15 +308,9 @@ def run(
         .option("table", bq_quarantine_table)
         .option("temporaryGcsBucket", gcs_temp_bucket)
         .option("partitionField", "ingestion_date")
-        .mode("overwrite")
+        .mode("append")
         .save()
     )
-
-    return {
-        "raw_count": raw_count,
-        "valid_count": valid_count,
-        "invalid_count": invalid_count,
-    }
 
 
 if __name__ == "__main__":
