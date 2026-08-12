@@ -48,7 +48,8 @@ jobs:
             pandas==2.2.0 \
             pytest==8.3.0 \
             black==24.4.2 \
-            flake8==7.0.0
+            flake8==7.0.0 \
+            google-cloud-bigquery==3.42.2
 
       - name: Black format check
         run: black --check spark_jobs/ ingestion/ tests/
