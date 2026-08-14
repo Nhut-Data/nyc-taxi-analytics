@@ -40,6 +40,10 @@ flowchart LR
 | 2 — Revenue & Tip | Doanh thu, tip% phân bổ ra sao theo khu vực/sân bay? | `agg_monthly_zone_revenue` |
 | 3 — Data Quality | Tỷ lệ dữ liệu lỗi thật là bao nhiêu, loại lỗi nào chiếm ưu thế? | `agg_monthly_pipeline_health`, `agg_monthly_data_quality` |
 
+## Dashboard trực tiếp
+
+📊 [Xem dashboard Looker Studio](https://datastudio.google.com/s/sDWxe9efWnU)
+
 ## Tech stack
 
 | Layer | Công nghệ |
@@ -138,6 +142,8 @@ cách xử lý trong quá trình xây dựng:
 | DAG hardcode `year, month = 2024, 1` | Code tạm để test, quên gỡ | Thay bằng `pendulum.subtract(months=2)` + override qua `dag_run.conf` cho demo |
 | CI không tự trigger khi sửa chính file workflow | Path filter không bao gồm chính nó | Thêm path của chính file workflow vào `paths:`, kèm `workflow_dispatch` |
 | `DagBag(include_examples=False)` lỗi trên Airflow 3.3.0 | Tham số bị loại bỏ theo kiến trúc DAG bundle mới | Tra release notes chính thức, bỏ tham số không còn tồn tại |
+| BigQuery `overwrite` mode xoá sạch dữ liệu tháng khác khi backfill | `partitionOverwriteMode` mặc định STATIC (xoá toàn bảng); DYNAMIC không đáng tin theo nhiều báo cáo lỗi thật của connector | Tự `DELETE` đúng phạm vi partition bằng BigQuery client trước khi `append`, kiểm soát tường minh |
+| `batch_id` trùng khi trigger DAG liên tiếp qua CLI | Template `{{ ts_nodash }}` không đảm bảo unique khi không truyền `--logical-date` tường minh | Kết hợp thêm `{{ dag_run.id }}` (khoá chính tự tăng), đảm bảo unique bất kể cách trigger |
 
 ## Chạy local
 
@@ -155,10 +161,9 @@ Xem toàn bộ lệnh: `make help`.
 
 ## Hạn chế đã biết (demo scope)
 
-- Pipeline hiện chỉ chạy 1 tháng dữ liệu (2024-01) — các chart "trend theo
-  thời gian" trên dashboard sẽ có ý nghĩa đầy đủ hơn khi chạy nhiều
-  tháng liên tiếp. Kiến trúc (partition theo `pickup_date`, DAG tự tính
-  kỳ xử lý) đã sẵn sàng scale, chỉ cần trigger thêm.
+- Pipeline đã backfill đầy đủ 12 tháng (2024-01 → 2024-12, ~40 triệu
+  dòng), đủ để các chart "trend theo thời gian" có ý nghĩa thống kê thật,
+  không chỉ demo hình thức.
 - `MIN_FARE_AMOUNT = 2.5` là ngưỡng an toàn xấp xỉ, chưa đối chiếu số quy
   định chính thức của TLC — xem ghi chú tại ADR-0004.
 
