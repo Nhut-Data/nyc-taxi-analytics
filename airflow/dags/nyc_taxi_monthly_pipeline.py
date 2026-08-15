@@ -164,7 +164,7 @@ def nyc_taxi_monthly_pipeline():
             },
             "runtime_config": {"version": RUNTIME_VERSION},
         },
-        batch_id="nyc-taxi-conform-{{ ts_nodash | lower }}",
+        batch_id="nyc-taxi-conform-{{ ts_nodash | lower }}-{{ dag_run.id }}",
         gcp_conn_id="google_cloud_default",
         on_failure_callback=notify_failure,
     )
