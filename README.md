@@ -44,6 +44,10 @@ flowchart LR
 
 📊 [Xem dashboard Looker Studio](https://datastudio.google.com/s/sDWxe9efWnU)
 
+## Video Demo
+
+🎥 [Xem video demo pipeline chạy end-to-end](https://www.youtube.com/watch?v=p3kFgR0-ZbM)
+
 ## Tech stack
 
 | Layer | Công nghệ |
