@@ -43,3 +43,29 @@ thuần tải được bình thường — hạn chế mạng gặp trước đ�
 
 **Lợi ích:** không phình repo, luôn dùng đúng Scala version khớp PySpark,
 build được ngay khi clone mới mà không cần bước setup thủ công.
+## Cập nhật: Chênh lệch Scala version giữa local dev và production (2026-08)
+
+**Phát hiện khi review lại dự án**: tra cứu tài liệu chính thức Google Cloud
+xác nhận Dataproc runtime 2.3 (production) dùng cấu hình sau:
+
+| Component | Local dev (`Dockerfile.spark-dev`) | Production (Dataproc runtime 2.3) |
+|---|---|---|
+| Apache Spark | 3.5.3 | 3.5.3 |
+| Scala | 2.12 (mặc định của PyPI `pyspark`) | 2.13 |
+| BigQuery Connector | Tự tải qua HTTPS, bản `_2.12` | Built-in sẵn, bản `_2.13` |
+
+Số Spark version khớp nhau, nhưng **Scala build khác nhau** — đặc thù của
+Apache Spark: PyPI wheel mặc định luôn đóng gói bản Scala 2.12, còn Google
+tự chọn đóng gói bản Scala 2.13 cho Dataproc managed runtime.
+
+**Vì sao đây không phải bug cần fix**: production không cần đính kèm jar
+nào (built-in sẵn, tự khớp đúng Scala 2.13 nội bộ), nên local dev dùng
+Scala 2.12 không ảnh hưởng gì tới hành vi production. Fix trước đó (đổi
+jar sang bản `_2.12`) là đúng đắn — khớp chính xác với Scala build của
+`pyspark` cài qua pip cho môi trường local.
+
+**Bài học cần nhớ**: môi trường local dev **không phải bản sao hoàn toàn
+chính xác** của production ở tầng JVM/Scala. Với code Python thuần, không
+ảnh hưởng gì. Nhưng nếu sau này thêm bất kỳ thư viện JVM/Scala-specific
+nào khác, cần luôn kiểm tra khớp đúng Scala version của **từng môi trường
+cụ thể**, không giả định 1 phiên bản dùng chung cho cả 2 nơi.
