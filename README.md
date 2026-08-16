@@ -130,6 +130,7 @@ cấp quyền toàn project).
 | [0004](docs/decisions/0004-quarantine-pattern.md) | Thiết kế quarantine pattern + thứ tự ưu tiên rule |
 | [0005](docs/decisions/0005-docker-spark-dev-environment.md) | Docker dev environment, BigQuery connector jar |
 | [0006](docs/decisions/0006-slack-notification-callback.md) | Slack alerting qua Airflow task callback |
+| [0007](docs/decisions/0007-explicit-partition-overwrite.md) | Kiểm soát tường minh overwrite thay vì phụ thuộc `partitionOverwriteMode` |
 
 ## Vấn đề kỹ thuật thật đã giải quyết
 
